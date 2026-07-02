@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+
+# Environment and secrets
+.env
+.env.*
+pocketstudio-gcs.json
+*.pem
+*.key
+
+# Generated outputs
+8_section_output/
+translated images/
+cuutouts/
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.webp
