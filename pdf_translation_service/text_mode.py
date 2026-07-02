@@ -750,10 +750,14 @@ async def translate_page_text_mode(
     # Verify the translator's OUTPUT strings, not a re-extraction of the rendered
     # PDF: PyMuPDF can't round-trip Indic conjuncts written via insert_htmlbox
     # (वर्ष re-extracts as 'व�ष'), so re-reading the output gives false signals.
+    # Use the language-specific handler's residual check (isolated per language).
+    from .languages import get_language_handler
+    _lang_handler = get_language_handler(target_language)
+
     src_texts = [b["text"] for b in blocks_for_translation]
     residual_idx = [
         i for i, t in enumerate(translations)
-        if should_translate(src_texts[i]) and is_residual_english(t or "")
+        if should_translate(src_texts[i]) and _lang_handler.is_residual(src_texts[i], t or "")
     ]
     if residual_idx:
         logger.info(
@@ -766,7 +770,7 @@ async def translate_page_text_mode(
                 repair_payload, target_language, target_script, page_context=page_context
             )
             for j, i in enumerate(residual_idx):
-                if j < len(retry) and retry[j] and not is_residual_english(retry[j]):
+                if j < len(retry) and retry[j] and not _lang_handler.is_residual(src_texts[i], retry[j]):
                     translations[i] = retry[j]
         except Exception as e:
             logger.warning(f"  [{target_language}] Page {page_num + 1}: residual repair failed ({e})")

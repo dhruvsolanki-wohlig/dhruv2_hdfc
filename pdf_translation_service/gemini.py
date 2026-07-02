@@ -14,6 +14,7 @@ from .config import (
     get_glossary,
     logger,
 )
+from .languages import get_language_handler
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
 
@@ -72,17 +73,19 @@ def build_translation_prompt(
     result fits the same space at a readable size — avoiding the heavy shrink that
     made translated text tiny.
     """
+    # ── Language-specific handler (isolated glossary, fit budget, prompt extras)
+    handler = get_language_handler(target_language)
+    fit_multiplier = handler.get_fit_multiplier()
+
     segments = []
     for i, block in enumerate(text_blocks):
         src = block["text"]
-        # Budget ≈ source length (+ small allowance). Indic text renders wider per
-        # glyph, so staying near the source char count keeps the rendered width
-        # close enough to fit without shrinking the font down to an unreadable size.
-        budget = max(10, round(len(src) * 1.1))
+        # Budget ≈ source length × fit multiplier (language-specific).
+        budget = max(10, round(len(src) * fit_multiplier))
         segments.append(f'[{i}] (fit in ~{budget} characters): "{src}"')
     segments_text = "\n".join(segments)
 
-    glossary = get_glossary(target_language)
+    glossary = handler.get_glossary()
     glossary_section = ""
     if glossary:
         terms = "\n".join(f'  "{en}" → "{tr}"' for en, tr in glossary.items())
@@ -100,8 +103,11 @@ def build_translation_prompt(
 
     error_section = build_error_feedback_section(error_context)
 
+    # Language-specific extra prompt instructions
+    prompt_extras = handler.get_prompt_extras()
+
     return f"""You are a professional document translator specializing in Indian languages. Translate the following text segments from English to {target_language} ({target_script} script).
-{glossary_section}{context_section}{error_section}
+{glossary_section}{context_section}{error_section}{prompt_extras}
 CRITICAL RULES:
 1. TRANSLITERATE brand names, product names, company names, and proper nouns in headings and body text — write them phonetically in {target_script}. Example: "HDFC Life" → "एचडीएफसी लाइफ", "Google" → "गूगल", "Sampoorna Jeevan" → "सम्पूर्ण जीवन". (EXCEPTION: in legal/disclaimer/footnote text — see rule 7 — the registered company name and product/plan names are kept in English, NOT transliterated.)
 2. Preserve the NUMBERS and symbols themselves (digits, %, ₹, $, dates) exactly — but TRANSLATE the words around them, including unit words like "years"→वर्ष, "months", "days", and terms like "Annual", "Monthly", "Half-Yearly", "Minimum", "Maximum", "Option", "Benefit", "variant". Example: "28 years" → "28 वर्ष". The ONLY text that stays in English: brand names, registration codes (CIN, UIN, IRDAI, ARN), URLs, emails, phone numbers, and the digits themselves.
