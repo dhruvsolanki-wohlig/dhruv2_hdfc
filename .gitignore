@@ -21,11 +21,9 @@ pocketstudio-gcs.json
 *.key
 
 # Generated outputs
-8_section_output/
-translated images/
-cuutouts/
-*.pdf
-*.png
-*.jpg
-*.jpeg
-*.webp
+!8_section_output/
+!8_section_output/**
+!cuutouts/
+!cuutouts/**
+!'translated images'/
+!'translated images'/**
